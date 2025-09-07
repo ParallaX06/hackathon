@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Anyone can read bus locations for real-time tracking
+    match /buses/{busId} {
+      allow read: if true;
+      // Only authenticated drivers can update their bus location
+      allow write: if request.auth != null && 
+        request.auth.uid == resource.data.driverId;
+    }
+    
+    // Routes are publicly readable, admin writable
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Bus stops are publicly readable, admin writable
+    match /busStops/{stopId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // ETAs are publicly readable, system writable
+    match /etas/{etaId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Analytics data - admin only
+    match /analytics/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}

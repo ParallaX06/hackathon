@@ -1,0 +1,62 @@
+{
+  "name": "real-time-transport-tracker",
+  "version": "1.0.0",
+  "description": "Real-time public transport tracking system for Smart India Hackathon 2025",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "serve": "npm run build && firebase serve",
+    "deploy": "npm run build && firebase deploy",
+    "firebase:emulator": "firebase emulators:start",
+    "driver-app": "cd driver-app && npm start"
+  },
+  "keywords": [
+    "public-transport",
+    "real-time-tracking",
+    "firebase",
+    "react",
+    "maps",
+    "hackathon"
+  ],
+  "author": "Smart India Hackathon 2025 Team",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/firestore": "^7.1.0",
+    "@react-google-maps/api": "^2.18.1",
+    "date-fns": "^2.29.3",
+    "firebase": "^10.7.1",
+    "lodash.debounce": "^4.0.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-firebase-hooks": "^5.1.1",
+    "react-icons": "^4.7.1",
+    "react-router-dom": "^6.8.1",
+    "react-scripts": "^5.0.1",
+    "react-toastify": "^9.1.1",
+    "uuid": "^9.0.0",
+    "web-vitals": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/lodash.debounce": "^4.0.7",
+    "@types/react": "^18.0.27",
+    "@types/react-dom": "^18.0.10",
+    "@types/uuid": "^9.0.0",
+    "firebase-tools": "^14.15.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:3001"
+}
