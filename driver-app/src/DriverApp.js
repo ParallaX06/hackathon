@@ -2,34 +2,43 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Import Firebase (you'll need to copy the firebase config here too)
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+// Demo mode configuration
+const isDemoMode = true;
 
-// Firebase configuration (same as main app)
-const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "your_api_key",
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "your_project.firebaseapp.com",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "your_project_id",
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "your_project.appspot.com",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "your_app_id"
+// Mock Firebase functions for demo
+const mockFirebase = {
+  updateDoc: async (ref, data) => {
+    console.log('📍 Demo: Location updated:', data);
+    return Promise.resolve();
+  },
+  doc: (db, collection, id) => ({ id, collection }),
+  serverTimestamp: () => new Date()
 };
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
 const DriverApp = () => {
   const [isTracking, setIsTracking] = useState(false);
-  const [busId, setBusId] = useState(localStorage.getItem('driverBusId') || '');
-  const [routeNumber, setRouteNumber] = useState(localStorage.getItem('driverRouteNumber') || '');
+  const [busId, setBusId] = useState(localStorage.getItem('driverBusId') || 'bus-001');
+  const [routeNumber, setRouteNumber] = useState(localStorage.getItem('driverRouteNumber') || '42A');
   const [currentLocation, setCurrentLocation] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [speed, setSpeed] = useState(0);
+  const [routeStatus, setRouteStatus] = useState('on-route');
+  const [passengerCount, setPassengerCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
   const watchIdRef = useRef(null);
   const lastPositionRef = useRef(null);
 
-  // Update location to Firebase
+  // Simulate notifications in demo mode
+  useEffect(() => {
+    const demoNotifications = [
+      { id: 1, message: 'Route 42A: High passenger demand detected', type: 'info', time: '10:30 AM' },
+      { id: 2, message: 'Traffic alert: Delay expected on Central Route', type: 'warning', time: '10:15 AM' },
+      { id: 3, message: 'Welcome to TransitTracker Driver App!', type: 'success', time: '10:00 AM' }
+    ];
+    setNotifications(demoNotifications);
+  }, []);
+
+  // Update location to Firebase or demo
   const updateLocationToFirebase = async (position) => {
     if (!busId) {
       toast.error('Please enter Bus ID first');
@@ -47,10 +56,16 @@ const DriverApp = () => {
         heading: position.coords.heading,
         routeNumber: routeNumber,
         isActive: true,
-        lastUpdated: serverTimestamp()
+        lastUpdated: isDemoMode ? new Date() : mockFirebase.serverTimestamp(),
+        routeStatus: routeStatus,
+        passengerCount: passengerCount
       };
 
-      await updateDoc(doc(db, 'buses', busId), locationData);
+      if (isDemoMode) {
+        console.log('📍 Demo: Bus location updated:', locationData);
+      } else {
+        await mockFirebase.updateDoc(mockFirebase.doc(null, 'buses', busId), locationData);
+      }
       
       setCurrentLocation(locationData.location);
       setSpeed(Math.round((position.coords.speed || 0) * 3.6)); // Convert m/s to km/h
@@ -76,7 +91,9 @@ const DriverApp = () => {
       
     } catch (error) {
       console.error('Error updating location:', error);
-      toast.error('Failed to update location: ' + error.message);
+      if (!isDemoMode) {
+        toast.error('Failed to update location: ' + error.message);
+      }
     }
   };
 
@@ -142,10 +159,14 @@ const DriverApp = () => {
     // Mark bus as inactive
     if (busId) {
       try {
-        await updateDoc(doc(db, 'buses', busId), {
-          isActive: false,
-          lastUpdated: serverTimestamp()
-        });
+        if (isDemoMode) {
+          console.log('🚫 Demo: Bus marked inactive:', busId);
+        } else {
+          await mockFirebase.updateDoc(mockFirebase.doc(null, 'buses', busId), {
+            isActive: false,
+            lastUpdated: mockFirebase.serverTimestamp()
+          });
+        }
       } catch (error) {
         console.error('Error marking bus inactive:', error);
       }
@@ -153,6 +174,33 @@ const DriverApp = () => {
 
     setIsTracking(false);
     toast.info('Stopped tracking location');
+  };
+
+  // Update route status
+  const updateRouteStatus = (status) => {
+    setRouteStatus(status);
+    toast.success(`Route status updated to: ${status}`);
+    
+    if (isDemoMode) {
+      console.log('🛣️ Demo: Route status updated:', status);
+    }
+  };
+
+  // Send notification
+  const sendNotification = (message) => {
+    const newNotification = {
+      id: Date.now(),
+      message: message || 'Driver notification sent to passengers',
+      type: 'info',
+      time: new Date().toLocaleTimeString()
+    };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    toast.success('Notification sent successfully!');
+    
+    if (isDemoMode) {
+      console.log('📢 Demo: Notification sent:', newNotification);
+    }
   };
 
   // Cleanup on unmount
@@ -189,8 +237,45 @@ const DriverApp = () => {
           fontWeight: '700', 
           marginBottom: '8px',
           textShadow: '0 2px 4px rgba(0,0,0,0.3)'
-        }}>🚌 Driver App</h1>
-        <p style={{ fontSize: '1rem', opacity: '0.9', fontWeight: '300' }}>Transport Tracker</p>
+        }}>🚌 Driver Dashboard</h1>
+        <p style={{ fontSize: '1rem', opacity: '0.9', fontWeight: '300' }}>Transport Tracker Pro</p>
+        
+        {/* Live Status Indicators */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '20px',
+          marginTop: '16px'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            padding: '8px 16px',
+            borderRadius: '12px'
+          }}>
+            <div style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: isTracking ? '#4CAF50' : '#FF9800',
+              animation: isTracking ? 'pulse 2s infinite' : 'none'
+            }}></div>
+            <span style={{ fontSize: '14px' }}>{isTracking ? 'Live Tracking' : 'Offline'}</span>
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            padding: '8px 16px',
+            borderRadius: '12px'
+          }}>
+            <span style={{ fontSize: '14px' }}>Route: {routeNumber || 'Not Set'}</span>
+          </div>
+        </div>
       </div>
 
       <div style={{ marginBottom: '24px' }}>
@@ -253,68 +338,269 @@ const DriverApp = () => {
         />
       </div>
 
+      {/* Enhanced Controls Section */}
+      <div style={{
+        background: 'rgba(255,255,255,0.95)',
+        borderRadius: '16px',
+        padding: '24px',
+        marginBottom: '24px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 20px 0', 
+          color: '#333',
+          fontSize: '1.2rem',
+          fontWeight: '600'
+        }}>Driver Controls</h3>
+        
+        {/* Quick Action Buttons */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '12px',
+          marginBottom: '20px'
+        }}>
+          <button
+            onClick={() => updateRouteStatus('on-time')}
+            style={{
+              padding: '12px 16px',
+              background: routeStatus === 'on-time' ? '#4CAF50' : 'rgba(76, 175, 80, 0.1)',
+              color: routeStatus === 'on-time' ? 'white' : '#4CAF50',
+              border: '2px solid #4CAF50',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            ✅ On Time
+          </button>
+          
+          <button
+            onClick={() => updateRouteStatus('delayed')}
+            style={{
+              padding: '12px 16px',
+              background: routeStatus === 'delayed' ? '#FF9800' : 'rgba(255, 152, 0, 0.1)',
+              color: routeStatus === 'delayed' ? 'white' : '#FF9800',
+              border: '2px solid #FF9800',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            ⏰ Delayed
+          </button>
+          
+          <button
+            onClick={() => sendNotification('Bus arriving at next stop in 2 minutes')}
+            style={{
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            📢 Notify Stop
+          </button>
+          
+          <button
+            onClick={() => sendNotification('Traffic delay - ETA updated')}
+            style={{
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            ⚠️ Traffic Alert
+          </button>
+        </div>
+        
+        {/* Passenger Count */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '16px'
+        }}>
+          <label style={{
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#333',
+            minWidth: '120px'
+          }}>Passenger Count:</label>
+          <input
+            type="number"
+            value={passengerCount}
+            onChange={(e) => setPassengerCount(parseInt(e.target.value) || 0)}
+            min="0"
+            max="60"
+            style={{
+              padding: '8px 12px',
+              border: '2px solid rgba(102, 126, 234, 0.2)',
+              borderRadius: '8px',
+              fontSize: '14px',
+              width: '80px'
+            }}
+          />
+          <span style={{ fontSize: '12px', color: '#666' }}>/ 40 capacity</span>
+        </div>
+      </div>
+
+      {/* Main Tracking Button */}
       <button
         onClick={isTracking ? stopTracking : startTracking}
         style={{
           width: '100%',
-          padding: '16px 20px',
+          padding: '18px 20px',
           background: isTracking 
             ? 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)' 
             : 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
           color: 'white',
           border: 'none',
-          borderRadius: '12px',
+          borderRadius: '16px',
           fontSize: '18px',
-          fontWeight: '600',
+          fontWeight: '700',
           cursor: 'pointer',
           marginBottom: '24px',
           transition: 'all 0.3s ease',
           boxShadow: isTracking 
-            ? '0 4px 15px rgba(244, 67, 54, 0.3)' 
-            : '0 4px 15px rgba(76, 175, 80, 0.3)',
-          fontFamily: 'Inter, sans-serif'
+            ? '0 8px 25px rgba(244, 67, 54, 0.3)' 
+            : '0 8px 25px rgba(76, 175, 80, 0.3)',
+          fontFamily: 'Inter, sans-serif',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
         }}
         onMouseOver={(e) => {
-          e.target.style.transform = 'translateY(-2px)';
+          e.target.style.transform = 'translateY(-3px)';
           e.target.style.boxShadow = isTracking 
-            ? '0 6px 20px rgba(244, 67, 54, 0.4)' 
-            : '0 6px 20px rgba(76, 175, 80, 0.4)';
+            ? '0 12px 30px rgba(244, 67, 54, 0.4)' 
+            : '0 12px 30px rgba(76, 175, 80, 0.4)';
         }}
         onMouseOut={(e) => {
           e.target.style.transform = 'translateY(0)';
           e.target.style.boxShadow = isTracking 
-            ? '0 4px 15px rgba(244, 67, 54, 0.3)' 
-            : '0 4px 15px rgba(76, 175, 80, 0.3)';
+            ? '0 8px 25px rgba(244, 67, 54, 0.3)' 
+            : '0 8px 25px rgba(76, 175, 80, 0.3)';
         }}
       >
-        {isTracking ? '⏹️ Stop Tracking' : '▶️ Start Tracking'}
+        {isTracking ? '⏹️ Stop Location Sharing' : '📍 Start Location Sharing'}
       </button>
 
+      {/* Enhanced Tracking Status */}
       {isTracking && (
         <div style={{
           background: 'rgba(76, 175, 80, 0.1)',
-          padding: '20px',
-          borderRadius: '12px',
+          padding: '24px',
+          borderRadius: '16px',
           border: '2px solid rgba(76, 175, 80, 0.3)',
-          backdropFilter: 'blur(10px)'
+          backdropFilter: 'blur(10px)',
+          marginBottom: '20px'
         }}>
-          <h3 style={{ margin: '0 0 16px 0', color: '#2e7d32', fontWeight: '600' }}>
-            📍 Tracking Active
-          </h3>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '16px'
+          }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: '#4CAF50',
+              animation: 'pulse 2s infinite'
+            }}></div>
+            <h3 style={{ margin: '0', color: '#2e7d32', fontWeight: '600' }}>
+              📍 Location Sharing Active
+            </h3>
+          </div>
           
           {currentLocation && (
-            <>
-              <p><strong>Latitude:</strong> {currentLocation.latitude.toFixed(6)}</p>
-              <p><strong>Longitude:</strong> {currentLocation.longitude.toFixed(6)}</p>
-              <p><strong>Speed:</strong> {speed} km/h</p>
-            </>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ background: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: '500' }}>Latitude</p>
+                <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#333' }}>{currentLocation.latitude.toFixed(6)}</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: '500' }}>Longitude</p>
+                <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#333' }}>{currentLocation.longitude.toFixed(6)}</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: '500' }}>Speed</p>
+                <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#333' }}>{speed} km/h</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: '500' }}>Status</p>
+                <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#333' }}>{routeStatus}</p>
+              </div>
+            </div>
           )}
           
           {lastUpdateTime && (
-            <p><strong>Last Update:</strong> {lastUpdateTime.toLocaleTimeString()}</p>
+            <p style={{ margin: '0', fontSize: '14px', color: '#2e7d32' }}>
+              <strong>Last Update:</strong> {lastUpdateTime.toLocaleTimeString()}
+            </p>
           )}
         </div>
       )}
+
+      {/* Notifications Panel */}
+      <div style={{
+        background: 'rgba(255,255,255,0.95)',
+        borderRadius: '16px',
+        padding: '20px',
+        marginBottom: '20px'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 16px 0', 
+          color: '#333',
+          fontSize: '1.1rem',
+          fontWeight: '600'
+        }}>Recent Notifications</h3>
+        
+        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+          {notifications.map((notification) => (
+            <div key={notification.id} style={{
+              padding: '12px 16px',
+              marginBottom: '8px',
+              background: notification.type === 'warning' ? 'rgba(255, 152, 0, 0.1)' : 
+                         notification.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+              border: `1px solid ${notification.type === 'warning' ? 'rgba(255, 152, 0, 0.3)' : 
+                                   notification.type === 'success' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
+              borderRadius: '8px',
+              borderLeft: `4px solid ${notification.type === 'warning' ? '#FF9800' : 
+                                       notification.type === 'success' ? '#4CAF50' : '#2196F3'}`
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <p style={{ margin: '0', fontSize: '14px', color: '#333', flex: 1 }}>
+                  {notification.message}
+                </p>
+                <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>
+                  {notification.time}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div style={{
         marginTop: '20px',

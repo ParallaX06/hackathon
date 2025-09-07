@@ -103,7 +103,7 @@ const MapView = ({ buses, routes, selectedRoute, lowBandwidthMode }) => {
     setMap(null);
   }, []);
 
-  if (!process.env.REACT_APP_GOOGLE_MAPS_API_KEY) {
+  if (!process.env.REACT_APP_GOOGLE_MAPS_API_KEY || process.env.REACT_APP_GOOGLE_MAPS_API_KEY === 'demo-maps-key') {
     return (
       <div className="map-container">
         <div style={{ 
@@ -111,13 +111,54 @@ const MapView = ({ buses, routes, selectedRoute, lowBandwidthMode }) => {
           justifyContent: 'center', 
           alignItems: 'center', 
           height: '100%',
-          background: '#f5f5f5',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           flexDirection: 'column',
-          gap: '16px'
+          gap: '16px',
+          color: 'white',
+          textAlign: 'center',
+          padding: '20px'
         }}>
-          <h3>🗺️ Map Configuration Required</h3>
-          <p>Please add your Google Maps API key to the .env file</p>
-          <code>REACT_APP_GOOGLE_MAPS_API_KEY=your_api_key_here</code>
+          <h3>🗺️ Demo Map View</h3>
+          <p>Interactive map simulation for hackathon demonstration</p>
+          
+          {/* Demo Bus Positions */}
+          <div style={{
+            width: '100%',
+            maxWidth: '400px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '12px',
+            padding: '16px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <h4>🚌 Live Buses</h4>
+            {buses.map((bus, index) => (
+              <div key={bus.id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px',
+                margin: '4px 0',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '8px'
+              }}>
+                <span>🚌 {bus.routeNumber}</span>
+                <span>{bus.speed} km/h</span>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: bus.isActive ? '#4CAF50' : '#F44336'
+                }}></span>
+              </div>
+            ))}
+          </div>
+          
+          <div style={{ fontSize: '14px', opacity: 0.8 }}>
+            <p>💡 To enable real Google Maps:</p>
+            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '4px 8px', borderRadius: '4px' }}>
+              Add REACT_APP_GOOGLE_MAPS_API_KEY to .env
+            </code>
+          </div>
         </div>
       </div>
     );
